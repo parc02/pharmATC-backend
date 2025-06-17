@@ -6,9 +6,10 @@ package park.pharmatc.v1.dto;
  */
 public record DrugDto(
         String name,         // 약품 이름
-        String ediCode,      // EDI 코드
+        String itemSeq,      // 품목기준 코드
         String dosageForm,   // 제형: 예) 정제, 캡슐
-        double diameter,     // 지름 (mm)
+        double lengLong,
+        double lengShort,
         double thickness     // 두께 (mm)
 ) {
 }

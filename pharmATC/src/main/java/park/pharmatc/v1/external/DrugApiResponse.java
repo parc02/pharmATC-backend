@@ -12,9 +12,12 @@ public class DrugApiResponse {
 
     public static class Item {
         public String ITEM_NAME;
-        public String EDI_CODE;
+        public String ITEM_SEQ;
         public String FORM_CODE_NAME;
         public String LENG_LONG;
+        public String LENG_SHORT;
         public String THICK;
     }
+
+
 }

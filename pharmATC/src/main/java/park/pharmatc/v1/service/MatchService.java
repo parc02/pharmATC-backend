@@ -17,7 +17,7 @@ public class MatchService {
 
     public MatchResponse findMatches(MatchRequest request) {
         //1. 기준 약품 조회
-        DrugDto target = drugInfoClient.fetchDrugInfo(request.keyword());
+        DrugDto target = drugInfoClient.fetchDrugInfo(request.itemSeq());
 
         //2. 전체 약품 목록 조회
         List<DrugDto> allDrugs = drugInfoClient.fetchAllDrugs();
@@ -34,9 +34,14 @@ public class MatchService {
 
     private boolean isWithinTolerance(DrugDto base, DrugDto candidate, int tolerance) {
         double rate = tolerance / 100.0;
-        boolean diameterOk = Math.abs(base.diameter() - candidate.diameter()) <= base.diameter() * rate;
+
+        boolean longOk = Math.abs(base.lengLong() - candidate.lengLong()) <= base.lengLong() * rate;
+        boolean shortOk = Math.abs(base.lengShort() - candidate.lengShort()) <= base.lengShort() * rate;
         boolean thicknessOk = Math.abs(base.thickness() - candidate.thickness()) <= base.thickness() * rate;
-        return diameterOk && thicknessOk;
+
+        return longOk && shortOk && thicknessOk;
     }
+
+
 
 }
