@@ -24,7 +24,7 @@ public class MatchService {
 
         //3. 필터링: 제형 동일 + 크기 오차 범위 내
         List<DrugDto> matched = allDrugs.stream()
-                .filter(d -> d.dosageForm().equals(target.dosageForm()))
+                .filter(d -> d.dosageForm() != null && d.dosageForm().equals(target.dosageForm()))
                 .filter(d -> isWithinTolerance(target, d, request.tolerance()))
                 .toList();
 
