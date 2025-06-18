@@ -10,7 +10,7 @@ import park.pharmatc.v1.service.MatchService;
 import park.pharmatc.v1.external.DrugInfoClient;
 
 import java.util.List;
-
+@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("api/v1/match")
 @RequiredArgsConstructor

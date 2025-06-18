@@ -35,7 +35,7 @@ public class DrugInfoClient {
         }
 
         DrugApiResponse.Item item = response.body.items.stream()
-                .filter(i -> itemSeq.equals(i.ITEM_SEQ))
+                .filter(i -> itemSeq != null && itemSeq.equals(i.ITEM_SEQ))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("응답에 item_seq가 일치하는 항목이 없습니다: " + itemSeq));
 
