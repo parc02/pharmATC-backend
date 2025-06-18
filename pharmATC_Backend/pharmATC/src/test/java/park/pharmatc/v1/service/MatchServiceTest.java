@@ -39,7 +39,7 @@ class MatchServiceTest {
         // then
         List<DrugDto> 결과 = 응답.matchedDrugs();
         assertEquals(2, 결과.size());
-        assertTrue(결과.stream().anyMatch(d -> d.name().equals("타이레놀")));
-        assertTrue(결과.stream().anyMatch(d -> d.name().equals("비슷한약")));
+        assertTrue(결과.stream().anyMatch(d -> d.itemName().equals("타이레놀")));
+        assertTrue(결과.stream().anyMatch(d -> d.itemName().equals("비슷한약")));
     }
 }

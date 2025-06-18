@@ -1,15 +1,14 @@
 package park.pharmatc.v1.dto;
 
-/**
- * 약 정보
- * 외부에서 API를 가저온 약품정보를 모두 이 형식으로 다룸
- */
 public record DrugDto(
-        String name,         // 약품 이름
-        String itemSeq,      // 품목기준 코드
-        String dosageForm,   // 제형: 예) 정제, 캡슐
-        double lengLong,
-        double lengShort,
-        double thickness     // 두께 (mm)
-) {
-}
+        String itemSeq,         // 품목일련번호
+        String itemName,        // 약품명
+        String entpSeq,         // 업체일련번호
+        String entpName,        // 업체명
+        String itemImage,       // 큰제품이미지
+        Double lengLong,        // 크기 장축
+        Double lengShort,       // 크기 단축
+        Double thick,           // 크기 두께
+        String ediCode,         // 보험코드
+        String formCodeName     // 제형코드이름
+) {}
