@@ -29,8 +29,10 @@ jobs:
         run: curl -fsSL https://railway.app/install.sh | sh
 
       - name: Echo Project ID (디버깅용)
-        run: echo "✅ RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}"
-
+        run: |
+          echo "🚀 Deploying to Railway..."
+          railway up --project "${{ secrets.RAILWAY_PROJECT_ID }}"
+          
       - name: Deploy to Railway
         run: |
           echo "🚀 Deploying to Railway..."
