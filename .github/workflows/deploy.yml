@@ -1,4 +1,3 @@
-# 🚀 Railway 자동 배포 워크플로 - 수정됨 2025-06-21
 name: Deploy to Railway
 
 on:
@@ -21,20 +20,20 @@ jobs:
           java-version: '24'
 
       - name: Grant execute permission for Gradle wrapper
-        working-directory: pharmATC_Backend/pharmATC
         run: chmod +x ./gradlew
 
       - name: Build Spring Boot App (Skip Tests)
-        working-directory: pharmATC_Backend/pharmATC
         run: ./gradlew bootJar -x test
 
       - name: Install Railway CLI
         run: curl -fsSL https://railway.app/install.sh | sh
 
+      - name: Echo Project ID (디버깅용)
+        run: echo "✅ RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}"
+
       - name: Deploy to Railway
-        working-directory: pharmATC_Backend/pharmATC
         run: |
-          echo "🚀 Starting deployment"
-          railway up --project ${{ secrets.RAILWAY_PROJECT_ID }}
+          echo "🚀 Deploying to Railway..."
+          railway up --project "${{ secrets.RAILWAY_PROJECT_ID }}"
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
