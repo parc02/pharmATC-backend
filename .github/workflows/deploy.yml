@@ -25,12 +25,12 @@ jobs:
       - name: Build Spring Boot App (Skip Tests)
         run: ./gradlew bootJar -x test
 
-      - name: Set up Railway CLI
-        uses: railwayapp/cli-action@v1
-        with:
-          railwayToken: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Install Railway CLI (최신)
+        run: npm install -g railway
 
       - name: Deploy to Railway
-        run: railway up --project ${{ secrets.RAILWAY_PROJECT_ID }}
+        run: |
+          echo "🚀 Deploying to Railway..."
+          railway up -- --project "${{ secrets.RAILWAY_PROJECT_ID }}"
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
