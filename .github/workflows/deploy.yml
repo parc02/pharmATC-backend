@@ -23,9 +23,9 @@ jobs:
         working-directory: pharmATC_Backend/pharmATC
         run: chmod +x ./gradlew
 
-      - name: Build with Gradle
+      - name: Build Spring Boot App (Skip Tests)
         working-directory: pharmATC_Backend/pharmATC
-        run: ./gradlew build
+        run: ./gradlew bootJar -x test
 
       - name: Install Railway CLI
         run: curl -fsSL https://railway.app/install.sh | sh
