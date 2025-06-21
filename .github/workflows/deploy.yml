@@ -20,15 +20,18 @@ jobs:
           java-version: '21'
 
       - name: Grant execute permission for Gradle wrapper
+        working-directory: pharmATC_Backend/pharmATC
         run: chmod +x ./gradlew
 
       - name: Build with Gradle
+        working-directory: pharmATC_Backend/pharmATC
         run: ./gradlew build
 
       - name: Install Railway CLI
         run: curl -fsSL https://railway.app/install.sh | sh
 
       - name: Deploy to Railway
+        working-directory: pharmATC_Backend/pharmATC
         run: railway up --project ${{ secrets.RAILWAY_PROJECT_ID }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
