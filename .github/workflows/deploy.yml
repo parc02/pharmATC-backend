@@ -25,19 +25,10 @@ jobs:
       - name: Build Spring Boot App (Skip Tests)
         run: ./gradlew bootJar -x test
 
-      - name: Install Railway CLI
-        run: curl -fsSL https://railway.app/install.sh | sh
+      - name: Set up Railway CLI
+        uses: railwayapp/cli-action@v1
+        with:
+          railwayToken: ${{ secrets.RAILWAY_TOKEN }}
 
-      - name: Echo Project ID (디버깅용)
-        run: |
-          echo "🚀 Deploying to Railway..."
-          railway up --project "${{ secrets.RAILWAY_PROJECT_ID }}"
-          
       - name: Deploy to Railway
-        run: |
-          echo "🚀 Deploying to Railway..."
-          railway up -- --project "${{ secrets.RAILWAY_PROJECT_ID }}"
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-  
+        run: railway up --project ${{ secrets.RAILWAY_PROJECT_ID }}
