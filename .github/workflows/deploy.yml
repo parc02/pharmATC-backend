@@ -26,7 +26,7 @@ jobs:
         run: ./gradlew bootJar -x test
 
       - name: Install Railway CLI (최신)
-        run: npm install -g railway
+        run: npm install -g @railway/cli
 
       - name: Deploy to Railway
         run: |
