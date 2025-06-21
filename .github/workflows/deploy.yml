@@ -38,11 +38,3 @@ jobs:
           railway up --project ${{ secrets.RAILWAY_PROJECT_ID }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      - name: Deploy to Railway
-        working-directory: pharmATC_Backend/pharmATC
-        run: |
-          echo "🚀 Deploying to Railway..."
-          railway up --project "${{ secrets.RAILWAY_PROJECT_ID }}"
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
