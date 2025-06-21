@@ -1,5 +1,6 @@
 package park.pharmatc.v1.external;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -8,9 +9,10 @@ import park.pharmatc.v1.dto.DrugDto;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.IntStream;
 
+@Slf4j
 @Component
 public class DrugInfoClient {
 
@@ -19,84 +21,85 @@ public class DrugInfoClient {
     private static final String API_BASE = "https://apis.data.go.kr/1471000/MdcinGrnIdntfcInfoService02/getMdcinGrnIdntfcInfoList02";
     private static final String API_KEY = "5FlmlUmrFvqEcJSuphoLdiC2hiqjs5AhZ2FyCcQrz21mcnrxN79/qveZuc8LLMVvwCm0wNuH2CwKnsP4RaJAPg==";
 
-    public DrugDto fetchDrugInfo(String itemSeq) {
-        URI uri = UriComponentsBuilder.fromHttpUrl(API_BASE)
-                .queryParam("serviceKey", UriUtils.encodeQueryParam(API_KEY, StandardCharsets.UTF_8))
-                .queryParam("item_seq", itemSeq)
-                .queryParam("type", "json")
-                .queryParam("numOfRows", 100) // 1보다 넉넉히 요청
-                .build(true)
-                .toUri();
-
-        DrugApiResponse response = restTemplate.getForObject(uri, DrugApiResponse.class);
-
-        if (response == null || response.body == null || response.body.items == null || response.body.items.isEmpty()) {
-            throw new RuntimeException("item_seq로 약품을 찾을 수 없습니다: " + itemSeq);
+    public int getTotalPageCount() {
+        DrugApiResponse response = getDrugItems("1");
+        if (response == null || response.body == null) {
+            throw new RuntimeException("응답이 비정상입니다.");
         }
-
-        DrugApiResponse.Item item = response.body.items.stream()
-                .filter(i -> itemSeq != null && itemSeq.equals(i.ITEM_SEQ))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("응답에 item_seq가 일치하는 항목이 없습니다: " + itemSeq));
-
-        return new DrugDto(
-                item.ITEM_NAME,
-                item.ITEM_SEQ,
-                item.FORM_CODE_NAME,
-                parseDouble(item.LENG_LONG),
-                parseDouble(item.LENG_SHORT),
-                parseDouble(item.THICK)
-        );
+        int totalCount = response.body.totalCount;
+        return (int) Math.ceil(totalCount / 100.0);
     }
 
-    public List<DrugDto> fetchAllDrugs() {
-        List<DrugDto> result = new ArrayList<>();
-        int numOfRows = 100;
+    public DrugApiResponse getDrugItems(String pageNo) {
+        URI uri = buildUri(null, Integer.parseInt(pageNo), 100);
+        return restTemplate.getForObject(uri, DrugApiResponse.class);
+    }
 
-        URI firstUri = buildUri(1, numOfRows);
+    public List<DrugDto> fetchAllDrugsParallel() {
+        int numOfRows = 100;
+        URI firstUri = buildUri(null, 1, numOfRows);
         DrugApiResponse firstResponse = restTemplate.getForObject(firstUri, DrugApiResponse.class);
+
         if (firstResponse == null || firstResponse.body == null || firstResponse.body.items == null) {
             throw new RuntimeException("첫 페이지 응답이 비정상입니다.");
         }
 
         int totalCount = firstResponse.body.totalCount;
         int totalPages = (int) Math.ceil((double) totalCount / numOfRows);
+        log.info("공공 API totalCount: {}, totalPages: {}", totalCount, totalPages);
 
-        for (int page = 1; page <= totalPages; page++) {
-            URI uri = buildUri(page, numOfRows);
-            DrugApiResponse response = restTemplate.getForObject(uri, DrugApiResponse.class);
-            if (response == null || response.body == null || response.body.items == null) continue;
+        List<DrugDto> result = new ArrayList<>(totalCount);
 
-            List<DrugDto> pageDrugs = response.body.items.stream()
-                    .filter(this::isValidItem)
-                    .map(i -> new DrugDto(
-                            i.ITEM_NAME,
-                            i.ITEM_SEQ,
-                            i.FORM_CODE_NAME,
-                            parseDouble(i.LENG_LONG),
-                            parseDouble(i.LENG_SHORT),
-                            parseDouble(i.THICK)
-                    ))
-                    .toList();
+        List<DrugDto> firstPage = firstResponse.body.items.stream()
+                .filter(this::isValidItem)
+                .map(this::convertToDto)
+                .toList();
 
-            result.addAll(pageDrugs);
-        }
+        result.addAll(firstPage);
 
+        List<DrugDto> rest = IntStream.rangeClosed(2, totalPages)
+                .parallel()
+                .mapToObj(page -> {
+                    try {
+                        URI uri = buildUri(null, page, numOfRows);
+                        DrugApiResponse response = restTemplate.getForObject(uri, DrugApiResponse.class);
+                        if (response == null || response.body == null || response.body.items == null)
+                            return List.<DrugDto>of();
+
+                        return response.body.items.stream()
+                                .filter(this::isValidItem)
+                                .map(this::convertToDto)
+                                .toList();
+                    } catch (Exception e) {
+                        log.warn("❗ 페이지 {} 불러오기 실패: {}", page, e.getMessage());
+                        return List.<DrugDto>of();
+                    }
+                })
+                .flatMap(List::stream)
+                .toList();
+
+        result.addAll(rest);
         return result;
     }
 
     private boolean isValidItem(DrugApiResponse.Item i) {
-        return i.ITEM_NAME != null && i.FORM_CODE_NAME != null && i.LENG_LONG != null && i.THICK != null;
+        return i.ITEM_SEQ != null && i.ITEM_NAME != null && i.FORM_CODE_NAME != null &&
+                i.LENG_LONG != null && i.LENG_SHORT != null && i.THICK != null;
     }
 
-    private URI buildUri(int page, int numOfRows) {
-        return UriComponentsBuilder.fromHttpUrl(API_BASE)
-                .queryParam("serviceKey", UriUtils.encodeQueryParam(API_KEY, StandardCharsets.UTF_8))
-                .queryParam("type", "json")
-                .queryParam("pageNo", page)
-                .queryParam("numOfRows", numOfRows)
-                .build(true)
-                .toUri();
+    private DrugDto convertToDto(DrugApiResponse.Item item) {
+        return new DrugDto(
+                item.ITEM_SEQ,
+                item.ITEM_NAME,
+                item.ENTP_SEQ,
+                item.ENTP_NAME,
+                item.ITEM_IMAGE,
+                parseDouble(item.LENG_LONG),
+                parseDouble(item.LENG_SHORT),
+                parseDouble(item.THICK),
+                item.EDI_CODE,
+                item.FORM_CODE_NAME
+        );
     }
 
     private double parseDouble(String s) {
@@ -105,5 +108,19 @@ public class DrugInfoClient {
         } catch (Exception e) {
             return 0.0;
         }
+    }
+
+    private URI buildUri(String itemSeq, int page, int numOfRows) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(API_BASE)
+                .queryParam("serviceKey", UriUtils.encodeQueryParam(API_KEY, StandardCharsets.UTF_8))
+                .queryParam("type", "json")
+                .queryParam("pageNo", page)
+                .queryParam("numOfRows", numOfRows);
+
+        if (itemSeq != null) {
+            builder.queryParam("item_seq", itemSeq);
+        }
+
+        return builder.build(true).toUri();
     }
 }
