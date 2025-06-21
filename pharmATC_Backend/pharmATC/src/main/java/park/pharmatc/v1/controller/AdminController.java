@@ -10,7 +10,7 @@ import park.pharmatc.v1.scheduler.DrugBatchScheduler;
 @RequiredArgsConstructor
 public class AdminController {
 
-    
+
     private final DrugBatchScheduler drugBatchScheduler;
 
     @PostMapping("/load-drugs")
