@@ -1,3 +1,5 @@
+# 🚀 Railway 자동 배포 워크플로 - 수정됨 2025-06-21
+
 name: Deploy to Railway
 
 on:
