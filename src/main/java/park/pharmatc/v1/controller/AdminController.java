@@ -3,19 +3,19 @@ package park.pharmatc.v1.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import park.pharmatc.v1.scheduler.DrugBatchScheduler;
+import park.pharmatc.v1.dto.ApiResponse;
+import park.pharmatc.v1.service.DrugAsyncService;
 
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
 public class AdminController {
 
-
-    private final DrugBatchScheduler drugBatchScheduler;
+    private final DrugAsyncService drugAsyncService;
 
     @PostMapping("/load-drugs")
-    public ResponseEntity<String> loadDrugs() {
-        drugBatchScheduler.runOnce();
-        return ResponseEntity.ok("약품 데이터 초기 적재 완료!");
+    public ResponseEntity<ApiResponse> loadDrugs() {
+        drugAsyncService.runBatchAsync(); // 🔄 비동기로 약품 적재 실행
+        return ResponseEntity.ok(ApiResponse.success("ok","약품 적재를 백그라운드에서 시작했습니다."));
     }
 }
