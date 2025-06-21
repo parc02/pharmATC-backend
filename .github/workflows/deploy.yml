@@ -31,6 +31,7 @@ jobs:
       - name: Deploy to Railway
         run: |
           echo "🚀 Deploying to Railway..."
-          railway up -- --project "${{ secrets.RAILWAY_PROJECT_ID }}"
+          railway up
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
