@@ -28,53 +28,69 @@ public class DrugBatchScheduler {
         Map<String, DrugCompanyEntity> companyCache = new ConcurrentHashMap<>();
         List<DrugDto> drugs = drugInfoClient.fetchAllDrugsParallel();
 
-        List<DrugItemEntity> items = drugs.parallelStream()
-                .map(dto -> {
-                    DrugItemEntity item = drugItemRepository.findById(Long.valueOf(dto.itemSeq()))
-                            .orElseGet(DrugItemEntity::new); // 신규 or 기존 업데이트
+        int updated = 0;
+        int inserted = 0;
 
-                    item.setItemSeq(String.valueOf(dto.itemSeq()));
-                    item.setItemName(dto.itemName());
-                    item.setFormCodeName(dto.formCodeName());
-                    item.setEdiCode(dto.ediCode());
-                    item.setUpdatedAt(LocalDateTime.now());
+        for (DrugDto dto : drugs) {
+            try {
+                DrugItemEntity item = drugItemRepository.findById(Long.valueOf(String.valueOf(Long.valueOf(dto.itemSeq()))))
+                        .orElseGet(() -> {
+                            DrugItemEntity newItem = new DrugItemEntity();
+                            newItem.setItemSeq(dto.itemSeq());
+                            return newItem;
+                        });
 
-                    // 업체 설정
-                    DrugCompanyEntity company = companyCache.computeIfAbsent(dto.entpSeq(), seq ->
-                            drugCompanyRepository.findById(seq).orElseGet(() -> {
-                                DrugCompanyEntity newCompany = new DrugCompanyEntity();
-                                newCompany.setEntpSeq(dto.entpSeq());
-                                newCompany.setEntpName(dto.entpName());
-                                return drugCompanyRepository.save(newCompany);
-                            }));
-                    item.setCompany(company);
+                item.setItemName(dto.itemName());
+                item.setFormCodeName(dto.formCodeName());
+                item.setEdiCode(dto.ediCode());
+                item.setUpdatedAt(LocalDateTime.now());
 
-                    // dimensions (새로 덮어쓰기)
-                    DrugDimensionsEntity dim = new DrugDimensionsEntity();
-                    dim.setLengLong(dto.lengLong());
-                    dim.setLengShort(dto.lengShort());
-                    dim.setThick(dto.thick());
+                // 업체 처리
+                DrugCompanyEntity company = companyCache.computeIfAbsent(dto.entpSeq(), seq ->
+                        drugCompanyRepository.findById(seq).orElseGet(() -> {
+                            DrugCompanyEntity newCompany = new DrugCompanyEntity();
+                            newCompany.setEntpSeq(dto.entpSeq());
+                            newCompany.setEntpName(dto.entpName());
+                            return drugCompanyRepository.save(newCompany);
+                        }));
+                item.setCompany(company);
+
+                // dimensions
+                DrugDimensionsEntity dim = item.getDimensions();
+                if (dim == null) {
+                    dim = new DrugDimensionsEntity();
                     dim.setDrugItem(item);
                     item.setDimensions(dim);
+                }
+                dim.setLengLong(dto.lengLong());
+                dim.setLengShort(dto.lengShort());
+                dim.setThick(dto.thick());
 
-                    // image (새로 덮어쓰기)
-                    DrugImagesEntity img = new DrugImagesEntity();
-                    img.setItemImage(dto.itemImage());
+                // image
+                DrugImagesEntity img = item.getImage();
+                if (img == null) {
+                    img = new DrugImagesEntity();
                     img.setDrugItem(item);
                     item.setImage(img);
+                }
+                img.setItemImage(dto.itemImage());
 
-                    return item;
-                })
-                .toList();
+                // 저장
+                drugItemRepository.save(item);
 
-        log.info("📥 저장/업데이트 대상 약품 수: {}", items.size());
+                if (item.getUpdatedAt() == null) {
+                    inserted++;
+                } else {
+                    updated++;
+                }
 
-        for (int i = 0; i < items.size(); i += 100) {
-            int end = Math.min(i + 100, items.size());
-            drugItemRepository.saveAll(items.subList(i, end));
+            } catch (Exception e) {
+                log.warn("❌ 저장 실패 - itemSeq: {}, 이유: {}", dto.itemSeq(), e.getMessage());
+            }
         }
 
-        log.info("✅ 적재 완료 (insert+update): {}", items.size());
+        log.info("✅ 적재 완료 - 추가: {}, 수정: {}, 실패 제외: {}", inserted, updated, drugs.size() - inserted - updated);
+
     }
 
     @Scheduled(cron = "0 0 0 * * *")

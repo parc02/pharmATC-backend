@@ -1,45 +1,80 @@
 package park.pharmatc.v1.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import park.pharmatc.v1.dto.DrugDto;
 import park.pharmatc.v1.dto.MatchRequest;
 import park.pharmatc.v1.dto.MatchResponse;
-import park.pharmatc.v1.external.DrugInfoClient;
+import park.pharmatc.v1.entity.*;
+import park.pharmatc.v1.repository.DrugItemRepository;
 
 import java.util.List;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class MatchServiceTest {
+
+    private DrugItemRepository drugItemRepository;
+    private MatchService matchService;
+
+    @BeforeEach
+    void setUp() {
+        drugItemRepository = mock(DrugItemRepository.class);
+        matchService = new MatchService(drugItemRepository);
+    }
+
     @Test
     void findMatches_필터링정상작동() {
         // given
-        DrugInfoClient mockClient = mock(DrugInfoClient.class);
+        DrugItemEntity 기준약 = makeDrug("1000", "정제", 8.0, 3.0, 2.0);
+        when(drugItemRepository.findByItemSeq("1000"))
+                .thenReturn(Optional.of(기준약));
 
-        DrugDto 기준약 = new DrugDto("타이레놀", "1234", "정제", 8.0, 3.0);
-        List<DrugDto> 전체약품 = List.of(
+        List<DrugItemEntity> 전체 = List.of(
                 기준약,
-                new DrugDto("비슷한약", "1111", "정제", 7.9, 3.1),
-                new DrugDto("크기가너무큼", "2222", "정제", 10.0, 5.0),
-                new DrugDto("제형다름", "3333", "시럽", 8.0, 3.0)
+                makeDrug("1001", "정제", 7.9, 3.1, 2.1),  // 허용됨
+                makeDrug("1002", "정제", 10.0, 5.0, 3.5), // 크기 너무 큼
+                makeDrug("1003", "시럽", 8.0, 3.0, 2.0)   // 제형 다름이지만 제형 기준 X
         );
 
-        when(mockClient.fetchDrugInfo("타이레놀")).thenReturn(기준약);
-        when(mockClient.fetchAllDrugs()).thenReturn(전체약품);
-
-        MatchService service = new MatchService(mockClient);
+        when(drugItemRepository.findAllWithAssociations()).thenReturn(전체);
 
         // when
-        MatchRequest 요청 = new MatchRequest("타이레놀", 10); // 허용오차 10%
-        MatchResponse 응답 = service.findMatches(요청);
+        MatchRequest 요청 = new MatchRequest("1000", 10); // 10% 오차
+        MatchResponse 응답 = matchService.findMatches(요청);
 
         // then
         List<DrugDto> 결과 = 응답.matchedDrugs();
         assertEquals(2, 결과.size());
-        assertTrue(결과.stream().anyMatch(d -> d.itemName().equals("타이레놀")));
-        assertTrue(결과.stream().anyMatch(d -> d.itemName().equals("비슷한약")));
+        assertEquals("1001", 결과.get(0).itemSeq());
+    }
+
+    private DrugItemEntity makeDrug(String itemSeq, String form, double lenLong, double lenShort, double thick) {
+        DrugItemEntity item = new DrugItemEntity();
+        item.setItemSeq(itemSeq);
+        item.setItemName("약품" + itemSeq);
+        item.setFormCodeName(form);
+        item.setEdiCode("EDI" + itemSeq);
+
+        DrugCompanyEntity company = new DrugCompanyEntity();
+        company.setEntpSeq("ENTP" + itemSeq);
+        company.setEntpName("회사" + itemSeq);
+        item.setCompany(company);
+
+        DrugDimensionsEntity dim = new DrugDimensionsEntity();
+        dim.setLengLong(lenLong);
+        dim.setLengShort(lenShort);
+        dim.setThick(thick);
+        dim.setDrugItem(item);
+        item.setDimensions(dim);
+
+        DrugImagesEntity image = new DrugImagesEntity();
+        image.setItemImage("image.jpg");
+        image.setDrugItem(item);
+        item.setImage(image);
+
+        return item;
     }
 }

@@ -9,10 +9,14 @@ import java.util.Optional;
 
 public interface DrugItemRepository extends JpaRepository<DrugItemEntity, Long> {
 
-    @Query("SELECT i.itemSeq FROM DrugItemEntity i")
+    Optional<DrugItemEntity> findByItemSeq(String itemSeq);
+
+    @Query("SELECT d.itemSeq FROM DrugItemEntity d")
     List<String> findAllItemSeqs();
 
-
-    Optional<DrugItemEntity> findByItemSeq(String itemSeq);
+    @Query("SELECT i FROM DrugItemEntity i " +
+            "LEFT JOIN FETCH i.company " +
+            "LEFT JOIN FETCH i.image " +
+            "LEFT JOIN FETCH i.dimensions")
+    List<DrugItemEntity> findAllWithAssociations();
 }
-
