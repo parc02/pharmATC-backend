@@ -11,11 +11,13 @@ import lombok.Setter;
 public class DrugDimensionsEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "item_seq")
+    private String itemSeq;
 
-    @OneToOne
-    @JoinColumn(name = "item_id")
+    // 주 테이블의 PK(item_seq)를 공유하는 1:1 관계 설정
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "item_seq") // FK이자 PK
     private DrugItemEntity drugItem;
 
     @Column(name = "leng_long")
