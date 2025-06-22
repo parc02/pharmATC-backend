@@ -14,10 +14,10 @@ public class DrugImagesEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(columnDefinition = "TEXT")
-    private String itemImage;         // 큰제품이미지
-
     @OneToOne
-    @JoinColumn(name = "item_id", referencedColumnName = "id")
-    private DrugItemEntity drugItem;  // 약품 연관 관계
+    @JoinColumn(name = "item_id")
+    private DrugItemEntity drugItem;
+
+    @Column(name = "item_image")
+    private String itemImage;
 }

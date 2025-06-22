@@ -13,19 +13,21 @@ import java.time.LocalDateTime;
 public class DrugItemEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "item_seq", nullable = false)
+    private String itemSeq; // 약품 고유코드 (PK)
 
-    @Column(unique = true)
-    private String itemSeq;           // 품목일련번호
+    @Column(name = "item_name")
+    private String itemName;
 
-    private String itemName;          // 품목명
-    private String formCodeName;      // 제형코드이름
-    private String ediCode;           // 보험코드
+    @Column(name = "edi_code")
+    private String ediCode;
+
+    @Column(name = "form_code_name")
+    private String formCodeName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "entp_seq", referencedColumnName = "entpSeq")
-    private DrugCompanyEntity company;  // 업체 연관 관계
+    @JoinColumn(name = "entp_seq")
+    private DrugCompanyEntity company;
 
     @OneToOne(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private DrugDimensionsEntity dimensions;

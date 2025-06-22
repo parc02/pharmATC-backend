@@ -14,11 +14,16 @@ public class DrugDimensionsEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Double lengLong;          // 크기 장축
-    private Double lengShort;         // 크기 단축
-    private Double thick;             // 크기 두께
-
     @OneToOne
-    @JoinColumn(name = "item_id", referencedColumnName = "id")
-    private DrugItemEntity drugItem;  // 약품 연관 관계
+    @JoinColumn(name = "item_id")
+    private DrugItemEntity drugItem;
+
+    @Column(name = "leng_long")
+    private double lengLong;
+
+    @Column(name = "leng_short")
+    private double lengShort;
+
+    @Column(name = "thick")
+    private double thick;
 }

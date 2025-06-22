@@ -13,10 +13,12 @@ import java.util.List;
 public class DrugCompanyEntity {
 
     @Id
-    private String entpSeq;           // 업체일련번호 (PK)
+    @Column(name = "entp_seq", nullable = false)
+    private String entpSeq; // 업체일련번호 (PK)
 
-    private String entpName;          // 업체명
+    @Column(name = "entp_name")
+    private String entpName; // 업체명
 
-    @OneToMany(mappedBy = "company", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "company", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DrugItemEntity> drugItems;
 }
