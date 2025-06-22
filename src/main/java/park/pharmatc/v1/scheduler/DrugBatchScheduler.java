@@ -24,118 +24,147 @@ public class DrugBatchScheduler {
     private final DrugCompanyRepository drugCompanyRepository;
 
     public void runOnce() {
-        log.info("\uD83D\uDE80 [Manual] 약품 데이터 적재 시작 (변경 감지 기반)");
+        log.info("🚀 [Manual] 약품 데이터 적재 시작 (변경 감지 기반)");
 
         Map<String, DrugCompanyEntity> companyCache = new ConcurrentHashMap<>();
         List<DrugDto> drugs = drugInfoClient.fetchAllDrugsParallel();
 
-        // 현재 DB에 있는 itemSeq 리스트 미리 로드
         Map<String, DrugItemEntity> existingItems = drugItemRepository.findAll().stream()
                 .collect(Collectors.toMap(DrugItemEntity::getItemSeq, item -> item));
 
         Set<String> incomingItemSeqs = new HashSet<>();
-
-        int inserted = 0;
-        int updated = 0;
+        int inserted = 0, updated = 0, failed = 0;
+        List<String> failedItemSeqs = new ArrayList<>();
 
         for (DrugDto dto : drugs) {
-            incomingItemSeqs.add(dto.itemSeq());
+            try {
+                if (dto.itemSeq() == null) {
+                    log.warn("⚠️ itemSeq가 null인 데이터 발견, 스킵됨: {}", dto);
+                    failed++;
+                    failedItemSeqs.add("NULL");
+                    continue;
+                }
 
-            DrugItemEntity item = existingItems.getOrDefault(dto.itemSeq(), new DrugItemEntity());
-            boolean isNew = item.getId() == null;
-            boolean changed = false;
+                incomingItemSeqs.add(dto.itemSeq());
 
-            // 기본 정보 설정
-            if (isNew) {
-                item.setItemSeq(dto.itemSeq());
-                changed = true;
-            }
+                DrugItemEntity item = existingItems.get(dto.itemSeq());
+                boolean isNew = false;
+                boolean changed = false;
 
-            if (!dto.itemName().equals(item.getItemName())) {
-                item.setItemName(dto.itemName());
-                changed = true;
-            }
-            if (!dto.formCodeName().equals(item.getFormCodeName())) {
-                item.setFormCodeName(dto.formCodeName());
-                changed = true;
-            }
-            if (!dto.ediCode().equals(item.getEdiCode())) {
-                item.setEdiCode(dto.ediCode());
-                changed = true;
-            }
+                if (item == null) {
+                    Optional<DrugItemEntity> dbItemOpt = drugItemRepository.findByItemSeq(dto.itemSeq());
+                    if (dbItemOpt.isPresent()) {
+                        item = dbItemOpt.get();
+                    } else {
+                        item = new DrugItemEntity();
+                        item.setItemSeq(dto.itemSeq());
+                        isNew = true;
+                        changed = true;
+                    }
+                }
 
-            // 회사 정보 처리
-            DrugCompanyEntity company = companyCache.computeIfAbsent(dto.entpSeq(), seq ->
-                    drugCompanyRepository.findById(seq).orElseGet(() -> {
-                        DrugCompanyEntity newCompany = new DrugCompanyEntity();
-                        newCompany.setEntpSeq(dto.entpSeq());
-                        newCompany.setEntpName(dto.entpName());
-                        return drugCompanyRepository.save(newCompany);
-                    }));
-            if (item.getCompany() == null || !item.getCompany().getEntpSeq().equals(company.getEntpSeq())) {
-                item.setCompany(company);
-                changed = true;
-            }
+                if (!Objects.equals(dto.itemName(), item.getItemName())) {
+                    item.setItemName(dto.itemName());
+                    changed = true;
+                }
 
-            // Dimensions
-            DrugDimensionsEntity dim = item.getDimensions();
-            if (dim == null) {
-                dim = new DrugDimensionsEntity();
-                dim.setDrugItem(item);
-                item.setDimensions(dim);
-                changed = true;
-            }
-            if (!Objects.equals(dim.getLengLong(), dto.lengLong())) {
-                dim.setLengLong(dto.lengLong());
-                changed = true;
-            }
-            if (!Objects.equals(dim.getLengShort(), dto.lengShort())) {
-                dim.setLengShort(dto.lengShort());
-                changed = true;
-            }
-            if (!Objects.equals(dim.getThick(), dto.thick())) {
-                dim.setThick(dto.thick());
-                changed = true;
-            }
+                if (!Objects.equals(dto.formCodeName(), item.getFormCodeName())) {
+                    item.setFormCodeName(dto.formCodeName());
+                    changed = true;
+                }
 
-            // Image
-            DrugImagesEntity img = item.getImage();
-            if (img == null) {
-                img = new DrugImagesEntity();
-                img.setDrugItem(item);
-                item.setImage(img);
-                changed = true;
-            }
-            if (!Objects.equals(img.getItemImage(), dto.itemImage())) {
-                img.setItemImage(dto.itemImage());
-                changed = true;
-            }
+                if (!Objects.equals(dto.ediCode(), item.getEdiCode())) {
+                    item.setEdiCode(dto.ediCode());
+                    changed = true;
+                }
 
-            if (changed) {
-                item.setUpdatedAt(LocalDateTime.now());
-                drugItemRepository.save(item);
-                if (isNew) inserted++;
-                else updated++;
+                // 회사 정보 처리
+                DrugCompanyEntity company = null;
+                if (dto.entpSeq() != null) {
+                    company = companyCache.computeIfAbsent(dto.entpSeq(), seq ->
+                            drugCompanyRepository.findById(seq).orElseGet(() -> {
+                                DrugCompanyEntity newCompany = new DrugCompanyEntity();
+                                newCompany.setEntpSeq(dto.entpSeq());
+                                newCompany.setEntpName(dto.entpName());
+                                return drugCompanyRepository.save(newCompany);
+                            }));
+                }
+
+                if (company != null && (item.getCompany() == null ||
+                        !Objects.equals(item.getCompany().getEntpSeq(), company.getEntpSeq()))) {
+                    item.setCompany(company);
+                    changed = true;
+                }
+
+                // 크기 정보
+                DrugDimensionsEntity dim = item.getDimensions();
+                if (dim == null) {
+                    dim = new DrugDimensionsEntity();
+                    dim.setDrugItem(item);
+                    item.setDimensions(dim);
+                    changed = true;
+                }
+                if (!Objects.equals(dim.getLengLong(), dto.lengLong())) {
+                    dim.setLengLong(dto.lengLong());
+                    changed = true;
+                }
+                if (!Objects.equals(dim.getLengShort(), dto.lengShort())) {
+                    dim.setLengShort(dto.lengShort());
+                    changed = true;
+                }
+                if (!Objects.equals(dim.getThick(), dto.thick())) {
+                    dim.setThick(dto.thick());
+                    changed = true;
+                }
+
+                // 이미지 정보
+                DrugImagesEntity img = item.getImage();
+                if (img == null) {
+                    img = new DrugImagesEntity();
+                    img.setDrugItem(item);
+                    item.setImage(img);
+                    changed = true;
+                }
+                if (!Objects.equals(img.getItemImage(), dto.itemImage())) {
+                    img.setItemImage(dto.itemImage());
+                    changed = true;
+                }
+
+                if (isNew || changed) {
+                    item.setUpdatedAt(LocalDateTime.now());
+                    drugItemRepository.save(item);
+                    if (isNew) inserted++;
+                    else updated++;
+                }
+
+            } catch (Exception e) {
+                failed++;
+                failedItemSeqs.add(dto.itemSeq());
+                log.warn("❗️약품 {} 저장 중 예외 발생: {}", dto.itemSeq(), e.getMessage(), e);
             }
         }
 
-        // 삭제 감지: 기존에 있었지만 새 목록에 없는 것 삭제
+        // 삭제 감지
         List<DrugItemEntity> toDelete = existingItems.values().stream()
                 .filter(item -> !incomingItemSeqs.contains(item.getItemSeq()))
-                .collect(Collectors.toList());
+                .toList();
         if (!toDelete.isEmpty()) {
             drugItemRepository.deleteAll(toDelete);
-            log.info("\u274C 삭제된 데이터 {}건", toDelete.size());
+            log.info("❌ 삭제된 데이터 {}건", toDelete.size());
         }
 
-        log.info("\u2705 적재 완료 - 추가: {}, 수정: {}, 총 처리: {}, 삭제: {}",
-                inserted, updated, inserted + updated, toDelete.size());
+        log.info("✅ 적재 완료 - 추가: {}, 수정: {}, 실패: {}, 총 처리: {}, 삭제: {}",
+                inserted, updated, failed, inserted + updated + failed, toDelete.size());
+
+        if (!failedItemSeqs.isEmpty()) {
+            log.warn("❗ 실패한 약품 itemSeq 목록 ({}건): {}", failedItemSeqs.size(), failedItemSeqs);
+        }
     }
 
     @Scheduled(cron = "0 0 0 * * *")
     public void updateDrugData() {
-        log.info("\uD83D\uDD52 [Scheduled] 약품 데이터 갱신 시작");
+        log.info("🕒 [Scheduled] 약품 데이터 갱신 시작");
         runOnce();
-        log.info("\uD83D\uDD52 [Scheduled] 약품 데이터 갱신 완료");
+        log.info("🕒 [Scheduled] 약품 데이터 갱신 완료");
     }
 }

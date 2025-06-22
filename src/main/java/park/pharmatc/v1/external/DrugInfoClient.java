@@ -9,7 +9,8 @@ import park.pharmatc.v1.dto.DrugDto;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.IntStream;
 
 @Slf4j
@@ -21,23 +22,9 @@ public class DrugInfoClient {
     private static final String API_BASE = "https://apis.data.go.kr/1471000/MdcinGrnIdntfcInfoService02/getMdcinGrnIdntfcInfoList02";
     private static final String API_KEY = "5FlmlUmrFvqEcJSuphoLdiC2hiqjs5AhZ2FyCcQrz21mcnrxN79/qveZuc8LLMVvwCm0wNuH2CwKnsP4RaJAPg==";
 
-    public int getTotalPageCount() {
-        DrugApiResponse response = getDrugItems("1");
-        if (response == null || response.body == null) {
-            throw new RuntimeException("응답이 비정상입니다.");
-        }
-        int totalCount = response.body.totalCount;
-        return (int) Math.ceil(totalCount / 100.0);
-    }
-
-    public DrugApiResponse getDrugItems(String pageNo) {
-        URI uri = buildUri(null, Integer.parseInt(pageNo), 100);
-        return restTemplate.getForObject(uri, DrugApiResponse.class);
-    }
-
     public List<DrugDto> fetchAllDrugsParallel() {
         int numOfRows = 100;
-        URI firstUri = buildUri(null, 1, numOfRows);
+        URI firstUri = buildUri(1, numOfRows);
         DrugApiResponse firstResponse = restTemplate.getForObject(firstUri, DrugApiResponse.class);
 
         if (firstResponse == null || firstResponse.body == null || firstResponse.body.items == null) {
@@ -46,34 +33,45 @@ public class DrugInfoClient {
 
         int totalCount = firstResponse.body.totalCount;
         int totalPages = (int) Math.ceil((double) totalCount / numOfRows);
-        log.info("공공 API totalCount: {}, totalPages: {}", totalCount, totalPages);
+        log.info("📦 공공 API totalCount: {}, totalPages: {}", totalCount, totalPages);
 
-        List<DrugDto> result = new ArrayList<>(totalCount);
+        List<DrugDto> result = new ArrayList<>();
 
+        // 첫 페이지
         List<DrugDto> firstPage = firstResponse.body.items.stream()
-                .filter(this::isValidItem)
                 .map(this::convertToDto)
+                .filter(this::isValidItem)
                 .toList();
-
         result.addAll(firstPage);
 
+        // 나머지 병렬 수집
         List<DrugDto> rest = IntStream.rangeClosed(2, totalPages)
                 .parallel()
                 .mapToObj(page -> {
+                    List<DrugDto> pageItems = new ArrayList<>();
                     try {
-                        URI uri = buildUri(null, page, numOfRows);
+                        URI uri = buildUri(page, numOfRows);
                         DrugApiResponse response = restTemplate.getForObject(uri, DrugApiResponse.class);
-                        if (response == null || response.body == null || response.body.items == null)
-                            return List.<DrugDto>of();
+                        if (response == null || response.body == null || response.body.items == null) {
+                            log.warn("⚠ 페이지 {} 응답 누락", page);
+                            return pageItems;
+                        }
 
-                        return response.body.items.stream()
-                                .filter(this::isValidItem)
-                                .map(this::convertToDto)
-                                .toList();
+                        for (DrugApiResponse.Item item : response.body.items) {
+                            DrugDto dto = convertToDto(item);
+                            if (isValidItem(dto)) {
+                                pageItems.add(dto);
+                                if ("200302457".equals(dto.itemSeq())) {
+                                    log.warn("🟢 유니펙탄 200302457 발견 (page {})", page);
+                                }
+                            }
+                        }
+
+                        log.info("✅ page {} → {}건 수신", page, pageItems.size());
                     } catch (Exception e) {
                         log.warn("❗ 페이지 {} 불러오기 실패: {}", page, e.getMessage());
-                        return List.<DrugDto>of();
                     }
+                    return pageItems;
                 })
                 .flatMap(List::stream)
                 .toList();
@@ -82,9 +80,9 @@ public class DrugInfoClient {
         return result;
     }
 
-    private boolean isValidItem(DrugApiResponse.Item i) {
-        return i.ITEM_SEQ != null && i.ITEM_NAME != null && i.FORM_CODE_NAME != null &&
-                i.LENG_LONG != null && i.LENG_SHORT != null && i.THICK != null;
+    private boolean isValidItem(DrugDto dto) {
+        return dto.itemSeq() != null && dto.itemName() != null && dto.formCodeName() != null
+                && dto.lengLong() > 0 && dto.lengShort() > 0 && dto.thick() > 0;
     }
 
     private DrugDto convertToDto(DrugApiResponse.Item item) {
@@ -104,23 +102,20 @@ public class DrugInfoClient {
 
     private double parseDouble(String s) {
         try {
+            if (s == null || s.trim().isEmpty()) return -1.0;
             return Double.parseDouble(s.trim());
         } catch (Exception e) {
-            return 0.0;
+            return -1.0;
         }
     }
 
-    private URI buildUri(String itemSeq, int page, int numOfRows) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(API_BASE)
+    private URI buildUri(int page, int numOfRows) {
+        return UriComponentsBuilder.fromHttpUrl(API_BASE)
                 .queryParam("serviceKey", UriUtils.encodeQueryParam(API_KEY, StandardCharsets.UTF_8))
                 .queryParam("type", "json")
                 .queryParam("pageNo", page)
-                .queryParam("numOfRows", numOfRows);
-
-        if (itemSeq != null) {
-            builder.queryParam("item_seq", itemSeq);
-        }
-
-        return builder.build(true).toUri();
+                .queryParam("numOfRows", numOfRows)
+                .build(true)
+                .toUri();
     }
 }
