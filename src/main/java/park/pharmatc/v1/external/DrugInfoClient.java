@@ -44,40 +44,41 @@ public class DrugInfoClient {
                 .toList();
         result.addAll(firstPage);
 
-        // 나머지 병렬 수집
+        // 나머지 페이지 (순차 처리 + 재시도)
         List<DrugDto> rest = IntStream.rangeClosed(2, totalPages)
-                .parallel()
-                .mapToObj(page -> {
-                    List<DrugDto> pageItems = new ArrayList<>();
-                    try {
-                        URI uri = buildUri(page, numOfRows);
-                        DrugApiResponse response = restTemplate.getForObject(uri, DrugApiResponse.class);
-                        if (response == null || response.body == null || response.body.items == null) {
-                            log.warn("⚠ 페이지 {} 응답 누락", page);
-                            return pageItems;
-                        }
-
-                        for (DrugApiResponse.Item item : response.body.items) {
-                            DrugDto dto = convertToDto(item);
-                            if (isValidItem(dto)) {
-                                pageItems.add(dto);
-                                if ("200302457".equals(dto.itemSeq())) {
-                                    log.warn("🟢 유니펙탄 200302457 발견 (page {})", page);
-                                }
-                            }
-                        }
-
-                        log.info("✅ page {} → {}건 수신", page, pageItems.size());
-                    } catch (Exception e) {
-                        log.warn("❗ 페이지 {} 불러오기 실패: {}", page, e.getMessage());
-                    }
-                    return pageItems;
-                })
+                .mapToObj(page -> fetchPageWithRetry(page, 3))
                 .flatMap(List::stream)
                 .toList();
 
         result.addAll(rest);
+
+        log.info("✅ 전체 수신 약품 수: {}", result.size());
         return result;
+    }
+
+    private List<DrugDto> fetchPageWithRetry(int page, int retries) {
+        for (int i = 1; i <= retries; i++) {
+            try {
+                URI uri = buildUri(page, 100);
+                DrugApiResponse response = restTemplate.getForObject(uri, DrugApiResponse.class);
+
+                if (response != null && response.body != null && response.body.items != null) {
+                    List<DrugDto> pageItems = response.body.items.stream()
+                            .map(this::convertToDto)
+                            .filter(this::isValidItem)
+                            .toList();
+
+                    log.info("✅ page {} (시도 {}회차): {}건 수신", page, i, pageItems.size());
+                    return pageItems;
+                } else {
+                    log.warn("⚠ page {} (시도 {}회차): 응답 없음", page, i);
+                }
+            } catch (Exception e) {
+                log.warn("❗ page {} (시도 {}회차): 예외 발생 - {}", page, i, e.getMessage());
+            }
+        }
+        log.error("❌ page {} 최종 실패 - 재시도 끝", page);
+        return new ArrayList<>();
     }
 
     private boolean isValidItem(DrugDto dto) {
