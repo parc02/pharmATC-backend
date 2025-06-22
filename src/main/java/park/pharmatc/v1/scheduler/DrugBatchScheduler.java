@@ -49,6 +49,7 @@ public class DrugBatchScheduler {
 
                 DrugItemEntity item = existingItems.get(dto.itemSeq());
                 boolean isNew = false;
+                boolean changed = false;
 
                 if (item == null) {
                     Optional<DrugItemEntity> dbItemOpt = drugItemRepository.findByItemSeq(dto.itemSeq());
@@ -58,13 +59,26 @@ public class DrugBatchScheduler {
                         item = new DrugItemEntity();
                         item.setItemSeq(dto.itemSeq());
                         isNew = true;
+                        changed = true;
                     }
                 }
 
-                item.setItemName(dto.itemName());
-                item.setFormCodeName(dto.formCodeName());
-                item.setEdiCode(dto.ediCode());
+                if (!Objects.equals(dto.itemName(), item.getItemName())) {
+                    item.setItemName(dto.itemName());
+                    changed = true;
+                }
 
+                if (!Objects.equals(dto.formCodeName(), item.getFormCodeName())) {
+                    item.setFormCodeName(dto.formCodeName());
+                    changed = true;
+                }
+
+                if (!Objects.equals(dto.ediCode(), item.getEdiCode())) {
+                    item.setEdiCode(dto.ediCode());
+                    changed = true;
+                }
+
+                // 회사 정보 처리
                 DrugCompanyEntity company = null;
                 if (dto.entpSeq() != null) {
                     company = companyCache.computeIfAbsent(dto.entpSeq(), seq ->
@@ -75,7 +89,12 @@ public class DrugBatchScheduler {
                                 return drugCompanyRepository.save(newCompany);
                             }));
                 }
-                item.setCompany(company);
+
+                if (company != null && (item.getCompany() == null ||
+                        !Objects.equals(item.getCompany().getEntpSeq(), company.getEntpSeq()))) {
+                    item.setCompany(company);
+                    changed = true;
+                }
 
                 // 크기 정보
                 DrugDimensionsEntity dim = item.getDimensions();
@@ -83,10 +102,20 @@ public class DrugBatchScheduler {
                     dim = new DrugDimensionsEntity();
                     dim.setDrugItem(item);
                     item.setDimensions(dim);
+                    changed = true;
                 }
-                dim.setLengLong(dto.lengLong());
-                dim.setLengShort(dto.lengShort());
-                dim.setThick(dto.thick());
+                if (!Objects.equals(dim.getLengLong(), dto.lengLong())) {
+                    dim.setLengLong(dto.lengLong());
+                    changed = true;
+                }
+                if (!Objects.equals(dim.getLengShort(), dto.lengShort())) {
+                    dim.setLengShort(dto.lengShort());
+                    changed = true;
+                }
+                if (!Objects.equals(dim.getThick(), dto.thick())) {
+                    dim.setThick(dto.thick());
+                    changed = true;
+                }
 
                 // 이미지 정보
                 DrugImagesEntity img = item.getImage();
@@ -94,13 +123,19 @@ public class DrugBatchScheduler {
                     img = new DrugImagesEntity();
                     img.setDrugItem(item);
                     item.setImage(img);
+                    changed = true;
                 }
-                img.setItemImage(dto.itemImage());
+                if (!Objects.equals(img.getItemImage(), dto.itemImage())) {
+                    img.setItemImage(dto.itemImage());
+                    changed = true;
+                }
 
-                item.setUpdatedAt(LocalDateTime.now());
-                drugItemRepository.save(item);
-                if (isNew) inserted++;
-                else updated++;
+                if (isNew || changed) {
+                    item.setUpdatedAt(LocalDateTime.now());
+                    drugItemRepository.save(item);
+                    if (isNew) inserted++;
+                    else updated++;
+                }
 
             } catch (Exception e) {
                 failed++;
@@ -109,6 +144,7 @@ public class DrugBatchScheduler {
             }
         }
 
+        // 삭제 감지
         List<DrugItemEntity> toDelete = existingItems.values().stream()
                 .filter(item -> !incomingItemSeqs.contains(item.getItemSeq()))
                 .toList();
