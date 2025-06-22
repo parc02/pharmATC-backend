@@ -4,37 +4,31 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
-
 @Entity
-@Table(name = "drug_item")
 @Getter
 @Setter
+@Table(name = "drug_item")
 public class DrugItemEntity {
 
     @Id
-    @Column(name = "item_seq", nullable = false)
-    private String itemSeq; // 약품 고유코드 (PK)
+    @Column(name = "item_seq")
+    private String itemSeq;
 
-    @Column(name = "item_name")
     private String itemName;
 
-    @Column(name = "edi_code")
     private String ediCode;
 
-    @Column(name = "form_code_name")
     private String formCodeName;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_seq", referencedColumnName = "item_seq")
+    private DrugDimensionsEntity dimensions;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "entp_seq")
     private DrugCompanyEntity company;
 
-    @OneToOne(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    private DrugDimensionsEntity dimensions;
-
-    @OneToOne(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_seq", referencedColumnName = "item_seq")
     private DrugImagesEntity image;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }
