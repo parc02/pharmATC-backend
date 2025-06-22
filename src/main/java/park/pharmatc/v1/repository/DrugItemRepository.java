@@ -8,7 +8,7 @@ import park.pharmatc.v1.entity.DrugItemEntity;
 import java.util.List;
 import java.util.Optional;
 
-public interface DrugItemRepository extends JpaRepository<DrugItemEntity, Long> {
+public interface DrugItemRepository extends JpaRepository<DrugItemEntity, String> {
 
     @Query("SELECT di FROM DrugItemEntity di " +
             "LEFT JOIN FETCH di.company " +
@@ -30,5 +30,12 @@ public interface DrugItemRepository extends JpaRepository<DrugItemEntity, Long> 
             "LEFT JOIN FETCH di.image")
     List<DrugItemEntity> findAllWithAssociations();
 
-    Optional<DrugItemEntity> findByItemSeq(String itemSeq);
+    @Query("SELECT di FROM DrugItemEntity di " +
+            "LEFT JOIN FETCH di.company " +
+            "LEFT JOIN FETCH di.dimensions " +
+            "LEFT JOIN FETCH di.image " +
+            "WHERE di.itemSeq = :itemSeq")
+    Optional<DrugItemEntity> findByItemSeqWithAssociations(@Param("itemSeq") String itemSeq);
+
+    Optional<DrugItemEntity> findByItemSeq(String itemSeq); // 기존 기본 쿼리 (변경 안 해도 됨)
 }
