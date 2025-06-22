@@ -19,11 +19,11 @@ public class DrugDimensionsEntity {
     private DrugItemEntity drugItem;
 
     @Column(name = "leng_long")
-    private double lengLong;
+    private Double lengLong;
 
     @Column(name = "leng_short")
-    private double lengShort;
+    private Double lengShort;
 
     @Column(name = "thick")
-    private double thick;
+    private Double thick;
 }
