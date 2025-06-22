@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Getter
 @Setter
@@ -31,4 +33,7 @@ public class DrugItemEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_seq", referencedColumnName = "item_seq")
     private DrugImagesEntity image;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt; // ✅ 이게 없어서 컴파일 실패 중!
 }
