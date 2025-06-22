@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 public class DrugItemEntity {
 
     @Id
-    @Column(name = "item_seq")
     private String itemSeq;
 
     private String itemName;
@@ -22,18 +21,15 @@ public class DrugItemEntity {
 
     private String formCodeName;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_seq", referencedColumnName = "item_seq")
-    private DrugDimensionsEntity dimensions;
+    private LocalDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "entp_seq")
     private DrugCompanyEntity company;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_seq", referencedColumnName = "item_seq")
-    private DrugImagesEntity image;
+    @OneToOne(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private DrugDimensionsEntity dimensions;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // ✅ 이게 없어서 컴파일 실패 중!
+    @OneToOne(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private DrugImagesEntity image;
 }

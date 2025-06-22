@@ -5,19 +5,18 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "drug_images")
 @Getter
 @Setter
+@Table(name = "drug_images")
 public class DrugImagesEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String itemSeq;
+
+    private String itemImage;
 
     @OneToOne
-    @JoinColumn(name = "item_id")
+    @MapsId
+    @JoinColumn(name = "item_seq")
     private DrugItemEntity drugItem;
-
-    @Column(name = "item_image")
-    private String itemImage;
 }
