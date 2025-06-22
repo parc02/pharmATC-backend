@@ -16,6 +16,7 @@ import park.pharmatc.v1.repository.DrugItemRepository;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +37,7 @@ public class MatchService {
             }
 
             DrugDimensionsEntity baseDim = base.getDimensions();
-            if (baseDim == null || baseDim.getLengLong() == null || baseDim.getLengShort() == null || baseDim.getThick() == null) {
+            if (!isValidDimensions(baseDim)) {
                 log.warn("기준 약품에 유효한 크기 정보가 없습니다: {}", request.itemSeq());
                 return new MatchResponse(Collections.emptyList());
             }
@@ -45,13 +46,11 @@ public class MatchService {
             List<DrugItemEntity> allItems = drugItemRepository.findAllWithAssociations();
 
             List<DrugDto> matched = allItems.stream()
-                    .filter(d -> !d.getItemSeq().equals(base.getItemSeq()))
-                    .filter(d -> {
-                        DrugDimensionsEntity dim = d.getDimensions();
-                        if (dim == null || dim.getLengLong() == null || dim.getLengShort() == null || dim.getThick() == null)
-                            return false;
-
-                        return isSmallerOrEqual(baseDim, dim) &&
+                    .filter(item -> !Objects.equals(item.getItemSeq(), base.getItemSeq()))
+                    .filter(item -> {
+                        DrugDimensionsEntity dim = item.getDimensions();
+                        return isValidDimensions(dim) &&
+                                isSmallerOrEqual(baseDim, dim) &&
                                 isWithinMargin(baseDim.getLengLong(), dim.getLengLong(), margin) &&
                                 isWithinMargin(baseDim.getLengShort(), dim.getLengShort(), margin) &&
                                 isWithinMargin(baseDim.getThick(), dim.getThick(), margin);
@@ -67,6 +66,10 @@ public class MatchService {
         }
     }
 
+    private boolean isValidDimensions(DrugDimensionsEntity dim) {
+        return dim != null && dim.getLengLong() != null && dim.getLengShort() != null && dim.getThick() != null;
+    }
+
     private boolean isSmallerOrEqual(DrugDimensionsEntity base, DrugDimensionsEntity target) {
         return target.getLengLong() <= base.getLengLong()
                 && target.getLengShort() <= base.getLengShort()
@@ -74,8 +77,8 @@ public class MatchService {
     }
 
     private boolean isWithinMargin(Double base, Double value, double margin) {
-        if (base == null || value == null || base == 0) return false;
-        return Math.abs(value - base) / base <= margin;
+        return base != null && value != null && base != 0 &&
+                Math.abs(value - base) / base <= margin;
     }
 
     private DrugDto toDto(DrugItemEntity item) {
