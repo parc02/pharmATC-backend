@@ -1,4 +1,4 @@
-name: Deploy to Railway
+name: Deploy to EC2 with Docker
 
 on:
   push:
@@ -25,13 +25,24 @@ jobs:
       - name: Build Spring Boot App (Skip Tests)
         run: ./gradlew bootJar -x test
 
-      - name: Install Railway CLI (최신)
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
+      - name: Set up SSH
         run: |
-          echo "🚀 Deploying to Railway..."
-          railway up --service "${{ secrets.RAILWAY_SERVICE_ID }}"
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy project to EC2
+        run: |
+          rsync -avz -e "ssh -i ~/.ssh/id_rsa" --exclude='.git' ./ ec2-user@${{ secrets.EC2_HOST }}:~/app
+
+      - name: Deploy via SSH
+        run: |
+          ssh ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~/app
+            ./gradlew bootJar -x test
+            docker stop app || true
+            docker rm app || true
+            docker build -t spring-app .
+            docker run -d --name app -p 8080:8080 spring-app
+          EOF
