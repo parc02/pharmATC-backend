@@ -13,7 +13,11 @@ import park.pharmatc.v1.service.MatchService;
 
 import java.util.List;
 
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = {
+        "http://localhost:3000",
+        "https://pharmatc-90ac0.web.app"
+})
+
 @RestController
 @RequestMapping("api/v1/match")
 @RequiredArgsConstructor
