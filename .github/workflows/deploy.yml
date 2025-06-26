@@ -31,9 +31,15 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
+          # ✅ SSH known_hosts 등록
+          mkdir -p ~/.ssh
+          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+
+          # ✅ JAR 업로드
           scp -i key.pem build/libs/*.jar $USER@$HOST:/home/ec2-user/app.jar
 
-          ssh -i key.pem $USER@$HOST << 'EOF'
+          # ✅ EC2에서 Docker 컨테이너 실행
+          ssh -i key.pem $USER@$HOST << EOF
             docker stop app || true
             docker rm app || true
             docker run -d --name app \
