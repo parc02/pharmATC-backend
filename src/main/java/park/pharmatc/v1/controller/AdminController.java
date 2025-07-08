@@ -10,7 +10,7 @@ import park.pharmatc.v1.service.DrugAsyncService;
 @CrossOrigin(origins = {
         "http://localhost:3000",
         "https://pharmatc-90ac0.web.app",
-        "http://3.25.215.61"
+        "http://3.25.208.164"
 })
 
 @RestController
