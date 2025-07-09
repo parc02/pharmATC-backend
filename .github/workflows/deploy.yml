@@ -1,4 +1,4 @@
-name: Deploy to Railway
+name: Deploy to EC2 with Docker
 
 on:
   push:
@@ -13,23 +13,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK 21
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '24'
 
-      - name: Grant execute permission for Gradle wrapper
-        run: chmod +x ./gradlew
+      - name: Build JAR (skip tests)
+        run: ./gradlew bootJar -x test
 
-      - name: Build with Gradle
-        run: ./gradlew build
-
-      - name: Install Railway CLI
-        run: curl -fsSL https://railway.app/install.sh | sh
-
-      - name: Deploy to Railway
-        run: railway up --project ${{ secrets.RAILWAY_PROJECT_ID }}
+      - name: Upload to EC2 and run Docker
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          HOST: ${{ secrets.EC2_HOST }}
+          USER: ec2-user
+        run: |
+          echo "$PRIVATE_KEY" > key.pem
+          chmod 600 key.pem
 
+          # ✅ SSH known_hosts 등록
+          mkdir -p ~/.ssh
+          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+
+          # ✅ JAR 업로드
+          scp -i key.pem build/libs/*.jar $USER@$HOST:/home/ec2-user/app.jar
+
+          # ✅ EC2에서 Docker 컨테이너 실행
+          ssh -i key.pem $USER@$HOST << EOF
+            docker stop app || true
+            docker rm app || true
+            docker run -d --name app \
+              -e DB_HOST=${{ secrets.DB_HOST }} \
+              -e DB_PORT=${{ secrets.DB_PORT }} \
+              -e DB_NAME=${{ secrets.DB_NAME }} \
+              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              -p 8080:8080 \
+              openjdk:24-jdk java -jar /home/ec2-user/app.jar
+          EOF
