@@ -1,4 +1,4 @@
-package park.pharmatc.v1;
+package park.pharmatc.v1.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
