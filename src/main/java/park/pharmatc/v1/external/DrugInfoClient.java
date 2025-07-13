@@ -82,11 +82,22 @@ public class DrugInfoClient {
     }
 
     private boolean isValidItem(DrugDto dto) {
+        // itemSeq, itemName, formCodeName, lengLong, lengShort, thick 값이 모두 유효하고, id도 유효한지 확인
         return dto.itemSeq() != null && dto.itemName() != null && dto.formCodeName() != null
-                && dto.lengLong() > 0 && dto.lengShort() > 0 && dto.thick() > 0;
+                && dto.lengLong() > 0 && dto.lengShort() > 0 && dto.thick() > 0
+                && dto.id() != null;  // id 값도 유효성 검사에 포함
     }
 
     private DrugDto convertToDto(DrugApiResponse.Item item) {
+        // itemSeq가 null이거나 빈 문자열인 경우를 필터링
+        if (item.ITEM_SEQ == null || item.ITEM_SEQ.trim().isEmpty()) {
+            log.warn("❌ itemSeq is null or empty for item: {}", item);
+            return null;  // 유효하지 않은 데이터는 건너뛰기
+        }
+
+        // itemSeq를 id로 Long 변환
+        Long id = Long.parseLong(item.ITEM_SEQ);  // itemSeq를 Long으로 변환
+
         return new DrugDto(
                 item.ITEM_SEQ,
                 item.ITEM_NAME,
@@ -97,7 +108,8 @@ public class DrugInfoClient {
                 parseDouble(item.LENG_SHORT),
                 parseDouble(item.THICK),
                 item.EDI_CODE,
-                item.FORM_CODE_NAME
+                item.FORM_CODE_NAME,
+                id  // itemSeq를 Long 타입의 id로 변환하여 전달
         );
     }
 

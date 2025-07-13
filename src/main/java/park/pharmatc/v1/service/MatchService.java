@@ -14,9 +14,8 @@ import park.pharmatc.v1.entity.DrugImagesEntity;
 import park.pharmatc.v1.entity.DrugItemEntity;
 import park.pharmatc.v1.repository.DrugItemRepository;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,42 +26,53 @@ public class MatchService {
 
     @Transactional(readOnly = true)
     public MatchResponse findMatches(MatchRequest request) {
+        System.out.println("Processing match request with id: " + request.id() + " and tolerance: " + request.tolerance());
+
         try {
-            DrugItemEntity base = drugItemRepository.findByItemSeq(request.itemSeq())
+            // 기준 약품을 id로 찾기 (id는 Long 타입)
+            DrugItemEntity base = drugItemRepository.findById(request.id())
                     .orElse(null);
 
             if (base == null) {
-                log.warn("기준 약품을 찾을 수 없습니다: {}", request.itemSeq());
+                log.warn("기준 약품을 찾을 수 없습니다: {}", request.id());
                 return new MatchResponse(Collections.emptyList());
             }
 
-            DrugDimensionsEntity baseDim = base.getDimensions();
+            // dimensions가 리스트인 경우 첫 번째 요소를 사용
+            DrugDimensionsEntity baseDim = base.getDimensions() != null && !base.getDimensions().isEmpty()
+                    ? base.getDimensions().get(0)
+                    : null;
+
             if (!isValidDimensions(baseDim)) {
-                log.warn("기준 약품에 유효한 크기 정보가 없습니다: {}", request.itemSeq());
+                log.warn("기준 약품에 유효한 크기 정보가 없습니다: {}", request.id());
                 return new MatchResponse(Collections.emptyList());
             }
 
             double margin = request.tolerance() / 100.0;
-            List<DrugItemEntity> allItems = drugItemRepository.findAllWithAssociations();
+            // findAll()을 사용하여 모든 약품을 가져옵니다.
+            List<DrugItemEntity> allItems = drugItemRepository.findAll();
 
+            // 결과 필터링
             List<DrugDto> matched = allItems.stream()
-                    .filter(item -> !Objects.equals(item.getItemSeq(), base.getItemSeq()))
+                    .filter(item -> !Objects.equals(item.getId(), base.getId())) // id로 비교 (Long 타입)
                     .filter(item -> {
-                        DrugDimensionsEntity dim = item.getDimensions();
+                        DrugDimensionsEntity dim = item.getDimensions() != null && !item.getDimensions().isEmpty()
+                                ? item.getDimensions().get(0)
+                                : null;
                         return isValidDimensions(dim) &&
                                 isSmallerOrEqual(baseDim, dim) &&
                                 isWithinMargin(baseDim.getLengLong(), dim.getLengLong(), margin) &&
                                 isWithinMargin(baseDim.getLengShort(), dim.getLengShort(), margin) &&
                                 isWithinMargin(baseDim.getThick(), dim.getThick(), margin);
                     })
-                    .map(this::toDto)
-                    .toList();
+                    .map(this::toDto)  // DTO로 변환
+                    .collect(Collectors.toList());
 
             return new MatchResponse(matched);
 
         } catch (Exception e) {
             log.error("MatchService 오류 발생: {}", e.getMessage(), e);
-            return new MatchResponse(Collections.emptyList()); // fallback
+            return new MatchResponse(Collections.emptyList());  // fallback
         }
     }
 
@@ -82,10 +92,12 @@ public class MatchService {
     }
 
     private DrugDto toDto(DrugItemEntity item) {
+        // `company`, `dimensions`, `images`을 안전하게 가져오기
         DrugCompanyEntity company = item.getCompany();
-        DrugDimensionsEntity dim = item.getDimensions();
-        DrugImagesEntity img = item.getImage();
+        DrugDimensionsEntity dim = item.getDimensions() != null && !item.getDimensions().isEmpty() ? item.getDimensions().get(0) : null;  // 첫 번째 요소만 사용
+        DrugImagesEntity img = item.getImages() != null && !item.getImages().isEmpty() ? item.getImages().get(0) : null; // 첫 번째 이미지만 가져옴
 
+        // DTO 객체로 변환하여 반환
         return new DrugDto(
                 item.getItemSeq(),
                 item.getItemName(),
@@ -96,7 +108,8 @@ public class MatchService {
                 dim != null ? dim.getLengShort() : null,
                 dim != null ? dim.getThick() : null,
                 item.getEdiCode(),
-                item.getFormCodeName()
+                item.getFormCodeName(),
+                item.getId()  // 수정된 부분: id 필드 추가
         );
     }
 }
