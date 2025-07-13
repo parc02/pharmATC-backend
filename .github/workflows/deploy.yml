@@ -27,27 +27,38 @@ jobs:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
           HOST: ${{ secrets.EC2_HOST }}
           USER: ec2-user
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
-          echo "$PRIVATE_KEY" > key.pem
+          set -eux
+
+          # ✅ Write PEM key properly
+          cat <<EOF > key.pem
+          ${PRIVATE_KEY}
+          EOF
           chmod 600 key.pem
 
           # ✅ SSH known_hosts 등록
           mkdir -p ~/.ssh
-          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
 
           # ✅ JAR 업로드
-          scp -i key.pem build/libs/*.jar $USER@$HOST:/home/ec2-user/app.jar
+          scp -i key.pem -o StrictHostKeyChecking=no build/libs/*.jar $USER@$HOST:/home/ec2-user/app.jar
 
           # ✅ EC2에서 Docker 컨테이너 실행
-          ssh -i key.pem $USER@$HOST << EOF
+          ssh -i key.pem -o StrictHostKeyChecking=no $USER@$HOST << 'EOSSH'
+            set -eux
             docker stop app || true
             docker rm app || true
             docker run -d --name app \
-              -e DB_HOST=${{ secrets.DB_HOST }} \
-              -e DB_PORT=${{ secrets.DB_PORT }} \
-              -e DB_NAME=${{ secrets.DB_NAME }} \
-              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
-              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              -e DB_HOST=${DB_HOST} \
+              -e DB_PORT=${DB_PORT} \
+              -e DB_NAME=${DB_NAME} \
+              -e DB_USERNAME=${DB_USERNAME} \
+              -e DB_PASSWORD=${DB_PASSWORD} \
               -p 8080:8080 \
               openjdk:24-jdk java -jar /home/ec2-user/app.jar
-          EOF
+          EOSSH
