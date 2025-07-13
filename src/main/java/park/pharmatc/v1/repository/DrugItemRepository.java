@@ -10,24 +10,24 @@ import java.util.Optional;
 
 public interface DrugItemRepository extends JpaRepository<DrugItemEntity, Long> {
 
-    @Query("SELECT di FROM DrugItemEntity di " +
+    @Query("SELECT DISTINCT di FROM DrugItemEntity di " +
             "LEFT JOIN FETCH di.company " +
             "LEFT JOIN FETCH di.dimensions " +
-            "LEFT JOIN FETCH di.image " +
+            "LEFT JOIN FETCH di.images " +
             "WHERE di.ediCode = :ediCode")
     List<DrugItemEntity> findByEdiCodeWithAll(@Param("ediCode") String ediCode);
 
-    @Query("SELECT di FROM DrugItemEntity di " +
+    @Query("SELECT DISTINCT di FROM DrugItemEntity di " +
             "LEFT JOIN FETCH di.company " +
             "LEFT JOIN FETCH di.dimensions " +
-            "LEFT JOIN FETCH di.image " +
+            "LEFT JOIN FETCH di.images " +
             "WHERE di.itemName LIKE %:itemName%")
     List<DrugItemEntity> findByItemNameContainingWithAll(@Param("itemName") String itemName);
 
-    @Query("SELECT di FROM DrugItemEntity di " +
+    @Query("SELECT DISTINCT di FROM DrugItemEntity di " +
             "LEFT JOIN FETCH di.company " +
             "LEFT JOIN FETCH di.dimensions " +
-            "LEFT JOIN FETCH di.image")
+            "LEFT JOIN FETCH di.images")
     List<DrugItemEntity> findAllWithAssociations();
 
     Optional<DrugItemEntity> findByItemSeq(String itemSeq);

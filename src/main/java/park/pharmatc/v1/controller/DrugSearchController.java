@@ -17,7 +17,6 @@ import java.util.List;
         "https://pharmatc-90ac0.web.app",
         "http://3.25.208.164"
 })
-
 @RestController
 @RequestMapping("/api/v1/drugs")
 @RequiredArgsConstructor
@@ -46,10 +45,16 @@ public class DrugSearchController {
 
     private DrugDto toDto(DrugItemEntity item) {
         DrugCompanyEntity company = item.getCompany();
-        DrugDimensionsEntity dim = item.getDimensions();
-        DrugImagesEntity img = item.getImage();
 
-        return new DrugDto(
+        DrugDimensionsEntity dim = item.getDimensions() != null && !item.getDimensions().isEmpty()
+                ? item.getDimensions().get(0)
+                : null;
+
+        DrugImagesEntity img = item.getImages() != null && !item.getImages().isEmpty()
+                ? item.getImages().get(0)
+                : null;
+
+        return DrugDto.of(
                 item.getItemSeq(),
                 item.getItemName(),
                 company != null ? company.getEntpSeq() : null,

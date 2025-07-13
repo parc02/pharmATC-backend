@@ -87,7 +87,7 @@ public class DrugInfoClient {
     }
 
     private DrugDto convertToDto(DrugApiResponse.Item item) {
-        return new DrugDto(
+        return DrugDto.of(
                 item.ITEM_SEQ,
                 item.ITEM_NAME,
                 item.ENTP_SEQ,
@@ -100,6 +100,7 @@ public class DrugInfoClient {
                 item.FORM_CODE_NAME
         );
     }
+
 
     private double parseDouble(String s) {
         try {
