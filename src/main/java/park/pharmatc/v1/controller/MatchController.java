@@ -29,6 +29,7 @@ public class MatchController {
 
     @PostMapping
     public ResponseEntity<MatchResponse> matchDrugs(@RequestBody MatchRequest matchRequest) {
+        System.out.println("Received match request: id=" + matchRequest.id() + ", tolerance=" + matchRequest.tolerance());
         MatchResponse response = matchService.findMatches(matchRequest);
         return ResponseEntity.ok(response);
     }
@@ -64,7 +65,8 @@ public class MatchController {
                 lengthShort,
                 thick,
                 item.getEdiCode(),
-                item.getFormCodeName()
+                item.getFormCodeName(),
+                item.getId()  // Ensure correct mapping of the ID
         );
 
         return ResponseEntity.ok(dto);

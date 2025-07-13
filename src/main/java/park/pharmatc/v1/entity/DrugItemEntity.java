@@ -2,6 +2,8 @@ package park.pharmatc.v1.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,9 +40,11 @@ public class DrugItemEntity {
     @JoinColumn(name = "entp_seq")
     private DrugCompanyEntity company;
 
-    @OneToMany(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Fetch(FetchMode.SUBSELECT)  // Subselect 처리
     private List<DrugDimensionsEntity> dimensions;
 
-    @OneToMany(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "drugItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Fetch(FetchMode.SUBSELECT)  // Subselect 처리
     private List<DrugImagesEntity> images;
 }
